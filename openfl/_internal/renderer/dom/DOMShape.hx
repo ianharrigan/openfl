@@ -1,6 +1,7 @@
 package openfl._internal.renderer.dom;
 
 
+import js.html.Element;
 import openfl._internal.renderer.canvas.CanvasGraphics;
 import openfl.display.DisplayObject;
 import openfl.geom.Matrix;
@@ -32,34 +33,48 @@ class DOMShape {
 				//CanvasGraphics.renderObjectGraphics (shape, renderSession);
 				//#end
 				
-				if (graphics.__canvas != null) {
-					
-					if (shape.__canvas == null) {
+				var useCanvas:Bool = DOMElements.isComplexGraphics(shape);
+				useCanvas = true;
+
+				if (useCanvas == true) {
+					if (graphics.__canvas != null) {
 						
-						shape.__canvas = cast Browser.document.createElement ("canvas");
-						shape.__context = shape.__canvas.getContext ("2d");
-						DOMRenderer.initializeElement (shape, shape.__canvas, renderSession);
+						if (shape.__canvas == null) {
+							
+							shape.__canvas = cast Browser.document.createElement ("canvas");
+							shape.__context = shape.__canvas.getContext ("2d");
+							DOMRenderer.initializeElement (shape, shape.__canvas, renderSession);
+							
+						}
+						
+						shape.__canvas.width = graphics.__canvas.width;
+						shape.__canvas.height = graphics.__canvas.height;
+						
+						shape.__context.globalAlpha = shape.__worldAlpha;
+						shape.__context.drawImage (graphics.__canvas, 0, 0);
+						
+					} else {
+						
+						if (shape.__canvas != null) {
+							
+							renderSession.element.removeChild (shape.__canvas);
+							shape.__canvas = null;
+							shape.__style = null;
+							
+						}
 						
 					}
-					
-					shape.__canvas.width = graphics.__canvas.width;
-					shape.__canvas.height = graphics.__canvas.height;
-					
-					shape.__context.globalAlpha = shape.__worldAlpha;
-					shape.__context.drawImage (graphics.__canvas, 0, 0);
-					
-				} else {
-					
-					if (shape.__canvas != null) {
-						
-						renderSession.element.removeChild (shape.__canvas);
-						shape.__canvas = null;
-						shape.__style = null;
-						
-					}
-					
 				}
 				
+				// TODO: turn this off later if using canvas
+				// DOM METHOD
+				var el:Element = null;
+				if (DOMElements.map.get(shape) == null) {
+					el = DOMElements.createElement(shape);
+				} else {
+					DOMElements.applyStyle(shape);
+				}
+				DOMElements.renderGraphics(shape);
 			}
 			
 			if (shape.__canvas != null) {
