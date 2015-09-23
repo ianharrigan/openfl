@@ -1,13 +1,32 @@
 package openfl._internal.renderer.dom;
 
+import haxe.io.Bytes;
 import js.Browser;
+import lime.graphics.Image;
+import lime.graphics.utils.ImageCanvasUtil;
+import lime.utils.UInt8Array;
+import openfl.display.Bitmap;
+import openfl.display.BitmapData;
 import openfl.display.DisplayObject;
 import openfl.display.GradientType;
 import openfl.display.Stage;
 import js.html.Element;
 
+
+typedef StrokeOptions = {
+	@:optional var lineThickness:Null<Float>;
+	@:optional var lineColor:Null<Int>;
+	@:optional var lineAlpha:Null<Float>;
+	
+	@:optional var lineGradientType:GradientType;
+	@:optional var lineGradientColors:Array<Dynamic>;
+	@:optional var lineGradientAlphas:Array<Dynamic>;
+	@:optional var lineGradientRatios:Array<Dynamic>;
+}
+
 @:access(openfl.display.DisplayObject)
 @:access(openfl.display.Graphics)
+@:access(lime.graphics.ImageBuffer)
 
 class DOMElements {
 	public static var map:Map<DisplayObject, Element> = new Map<DisplayObject, Element>();
@@ -57,29 +76,28 @@ class DOMElements {
 		}
 	}
 	
-	public static inline function renderBorder(el:Element, x:Float, y:Float, cx:Float, cy:Float,
-											 lineThickness:Null<Float>, lineColor:Null<Int>, lineAlpha:Null<Float>,
-											 lineGradientType:GradientType, lineGradientColors:Array<Dynamic>,
-											 lineGradientAlphas:Array<Dynamic>, lineGradientRatios:Array<Dynamic>) {
-		if (lineThickness != null) {
-			cx += lineThickness;
-			cy += lineThickness;
+	public static inline function renderBorder(el:Element, x:Float, y:Float, cx:Float, cy:Float, strokeOptions:StrokeOptions) {
+		if (strokeOptions.lineThickness != null) {
+			cx += strokeOptions.lineThickness;
+			cy += strokeOptions.lineThickness;
 		}
 		el.style.left = x + "px";
 		el.style.top = y + "px";
 		el.style.width = cx + "px";
 		el.style.height = cy + "px";
 		
-		if (lineThickness != null) {
+		if (strokeOptions.lineThickness != null) {
 			//sub.style.boxShadow = "inset 0px 0px 0px " + lineThickness + "px " + color(lineColor, lineAlpha);
-			el.style.border = lineThickness + "px solid " + color(lineColor, lineAlpha);
-			var t = lineThickness / 2;
+			el.style.border = strokeOptions.lineThickness + "px solid " + color(strokeOptions.lineColor, strokeOptions.lineAlpha);
+			var t = strokeOptions.lineThickness * 0.5;
 			el.style.transform = "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -" + t + ", -" + t + ", 0, 1)";
 			el.style.borderRadius = t + "px";
 		}
 		
-		if (lineGradientType != null) {
-			el.style.borderImage = "linear-gradient(to bottom, " + color(lineGradientColors[0]) + " 0%, " + color(lineGradientColors[1]) + " 100%)";
+		if (strokeOptions.lineGradientType != null) {
+			el.style.borderImage = "linear-gradient(to bottom, "
+				+ color(strokeOptions.lineGradientColors[0]) + " 0%, "
+				+ color(strokeOptions.lineGradientColors[1]) + " 100%)";
 			el.style.borderImageSlice = "1";
 		}
 
@@ -99,6 +117,7 @@ class DOMElements {
 		var data = new DrawCommandReader(shape.__graphics.__commands);
 		var sub:Element = null;
 		
+		/*
 		var lineThickness:Null<Float> = null;
 		var lineColor:Null<Int> = null;
 		var lineAlpha:Null<Float> = null;
@@ -107,21 +126,49 @@ class DOMElements {
 		var lineGradientColors:Array<Dynamic> = null;
 		var lineGradientAlphas:Array<Dynamic> = null;
 		var lineGradientRatios:Array<Dynamic> = null;
+		*/
+		
+		var strokeOptions:StrokeOptions = {};
 		
 		for (type in shape.__graphics.__commands.types) {
 			switch (type) {
 				case LINE_STYLE:
 					var c = data.readLineStyle();
-					lineThickness = c.thickness;
-					lineColor = c.color;
-					lineAlpha = c.alpha;
+					strokeOptions.lineThickness = c.thickness;
+					strokeOptions.lineColor = c.color;
+					strokeOptions.lineAlpha = c.alpha;
+					/*
+					strokeOptions = {
+						lineThickness = c.thickness;
+						lineColor = c.color;
+						lineAlpha = c.alpha;
+					};
+					*/
 				
 				case LINE_GRADIENT_STYLE:	
 					var c = data.readLineGradientStyle();
-					lineGradientType = c.type;
-					lineGradientColors = c.colors;
-					lineGradientAlphas = c.alphas;
-					lineGradientRatios = c.ratios;
+					strokeOptions.lineGradientType = c.type;
+					strokeOptions.lineGradientColors = c.colors;
+					strokeOptions.lineGradientAlphas = c.alphas;
+					strokeOptions.lineGradientRatios = c.ratios;
+					
+				case LINE_BITMAP_STYLE:
+					var c = data.readLineBitmapStyle ();
+					//strokeCommands.lineBitmapStyle (c.bitmap, c.matrix, c.repeat, c.smooth);
+					/*
+					trace(c.bitmap);
+					trace(ImageCanvasUtil.convertToData(c.bitmap.image));
+					trace(c.bitmap);
+					*/
+					
+					var x = createImageBase64(c.bitmap);
+					var image = Browser.document.createImageElement();
+					image.src = x;
+					Browser.document.body.appendChild(image);
+					image.style.position = "absolute";
+					image.style.left = "0";
+					image.style.top = "0";
+					trace(x);
 					
 				case BEGIN_FILL:
 				case DRAW_RECT:
@@ -129,30 +176,25 @@ class DOMElements {
 					sub.classList.add("shape");
 
 					var c = data.readDrawRect();
-					renderBorder(sub, c.x, c.y, c.width, c.height, 
-								 lineThickness, lineColor, lineAlpha, 
-								 lineGradientType, lineGradientColors,
-								 lineGradientAlphas, lineGradientRatios);
+					renderBorder(sub, c.x, c.y, c.width, c.height, strokeOptions);
 				case DRAW_ROUND_RECT:	
 					sub = Browser.document.createElement("div"); 
 					sub.classList.add("shape");
 
 					var c = data.readDrawRoundRect();
-					renderBorder(sub, c.x, c.y, c.width, c.height, 
-								 lineThickness, lineColor, lineAlpha, 
-								 lineGradientType, lineGradientColors,
-								 lineGradientAlphas, lineGradientRatios);
+					renderBorder(sub, c.x, c.y, c.width, c.height, strokeOptions);
 					
 					if (c.rx == c.ry) {
-						sub.style.borderRadius = Math.fceil(c.rx / 2) + "px";
+						sub.style.borderRadius = Math.fceil(c.rx * 0.5) + "px";
 					} else {
-						var rx:Float = Math.fceil(c.rx / 2);
-						var ry:Float = Math.fceil(c.ry / 2);
+						var rx:Float = Math.fceil(c.rx * 0.5);
+						var ry:Float = Math.fceil(c.ry * 0.5);
 						
-						sub.style.borderTopLeftRadius = rx + "px " + ry + "px";
-						sub.style.borderTopRightRadius = rx + "px " + ry + "px";
-						sub.style.borderBottomLeftRadius = rx + "px " + ry + "px";
-						sub.style.borderBottomRightRadius = rx + "px " + ry + "px";
+						var s = rx + "px " + ry + "px";
+						sub.style.borderTopLeftRadius = s;
+						sub.style.borderTopRightRadius = s;
+						sub.style.borderBottomLeftRadius = s;
+						sub.style.borderBottomRightRadius = s;
 					}
 					
 				case END_FILL:
@@ -164,6 +206,32 @@ class DOMElements {
 					data.skip(type);
 			}
 		}
+	}
+	
+	private static function createImageBase64(b:BitmapData):String {
+		//trace(b);
+		//return "";
+		var b = b.clone(); // probably doesnt make sense, or to be creating images at all
+		ImageCanvasUtil.convertToData(b.image);
+		trace(b);
+		//var ba:UInt8Array = new UInt8Array();
+		//ba = b.image.buffer.data;
+		trace(b.image.buffer.data.buffer);
+		trace(b.image.buffer.__srcImageData.data.buffer);
+		trace(Image.fromBytes(b.image.buffer.data.buffer));
+		
+		/*
+		for (i in 0...b.image.buffer.data.buffer.byteLength) {
+			trace(b.image.buffer.data.);
+		}
+		*/
+		
+		var bytes:Bytes = Bytes.ofData(b.image.buffer.data.buffer);
+		//var bytes:Bytes = b.image.buffer.__srcImageData.data.buffer.toBytes();
+		trace(bytes.length);
+		var base64:String = haxe.crypto.Base64.encode(bytes);
+		var imgSrc:String = "data:image/png;base64," + base64;
+		return imgSrc;
 	}
 	
 	public static inline function isComplexGraphics(shape:DisplayObject):Bool {

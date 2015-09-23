@@ -1,12 +1,12 @@
 package openfl._internal.renderer.dom;
 
 
-import js.html.Element;
 import openfl._internal.renderer.canvas.CanvasGraphics;
 import openfl.display.DisplayObject;
 import openfl.geom.Matrix;
 
 #if (js && html5)
+import js.html.Element;
 import js.Browser;
 #end
 
