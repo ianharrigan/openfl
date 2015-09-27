@@ -29,6 +29,7 @@ import js.html.CanvasElement;
 import js.html.CanvasRenderingContext2D;
 import js.html.CSSStyleDeclaration;
 import js.html.Element;
+import openfl._internal.renderer.dom.DOMElement;
 #end
 
 
@@ -750,6 +751,7 @@ class DisplayObject extends EventDispatcher implements IBitmapDrawable {
 	@:noCompletion private var __cacheAsBitmap:Bool = false;
 	
 	#if (js && html5)
+	@:noCompletion private var __element:DOMElement;
 	@:noCompletion private var __canvas:CanvasElement;
 	@:noCompletion private var __context:CanvasRenderingContext2D;
 	@:noCompletion private var __style:CSSStyleDeclaration;
